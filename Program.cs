@@ -1,9 +1,8 @@
+using FantasyCalcScrape.Configuration;
+using FantasyCalcScrape.HealthChecks;
 using FantasyCalcScrape.Jobs;
 using FantasyCalcScrape.Services;
 using FantasyCalcScrape.Services.Interfaces;
-using FantasyCalcScrape.HealthChecks;
-using FantasyCalcScrape.Configuration;
-using FantasyCalcScrape.Models;
 using Quartz;
 using Serilog;
 
