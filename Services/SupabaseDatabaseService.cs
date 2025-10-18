@@ -1,6 +1,6 @@
-using Supabase;
-using FantasyCalcScrape.Services.Interfaces;
 using FantasyCalcScrape.Models.Supa;
+using FantasyCalcScrape.Services.Interfaces;
+using Supabase;
 
 namespace FantasyCalcScrape.Services;
 
@@ -53,12 +53,21 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
                 return false;
             }
 
-            var player = findResult.Models.First();
+
+            var player = findResult.Models.FirstOrDefault();
+            if (player == null)
+            {
+                _logger.LogWarning("No player found with Sleeper ID {SleeperId}", sleeperId);
+                return false;
+            }
+
             _logger.LogInformation("Found player: {FirstName} {LastName} (ID: {PlayerId}) with Sleeper ID {SleeperId}",
-                player.FirstName, player.LastName, player.Id, sleeperId);
+                player.FirstName ?? "Unknown", player.LastName ?? "Unknown", player.Id, sleeperId);
+
 
             // Update the player's redraft value
             _logger.LogDebug("Updating player {SleeperId} redraft value to {RedraftValue}", sleeperId, redraftValue);
+
 
             var result = await _supabaseClient
                 .From<Player>()
@@ -66,7 +75,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
                 .Set(p => p.FantasyCalcRedraftValue, redraftValue)
                 .Update();
 
-            if (result?.Models is not null && result.Models.Any())
+            if (result != null && result.Models != null && result.Models.Any())
             {
                 _logger.LogDebug("Successfully updated redraft value for player {SleeperId}", sleeperId);
                 return true;
@@ -76,6 +85,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
                 _logger.LogWarning("Update failed for player with Sleeper ID {SleeperId}", sleeperId);
                 return false;
             }
+
         }
         catch (Exception ex)
         {
@@ -183,7 +193,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
             }
 
             // Check for duplicate Sleeper IDs
-            var sleeperIdCounts = playersResult.GroupBy(p => p.SleeperId).ToDictionary(g => g.Key, g => g.Count());
+            var sleeperIdCounts = playersResult.GroupBy(p => p.SleeperId).ToDictionary(g => g.Key ?? 0, g => g.Count());
             var duplicates = sleeperIdCounts.Where(kvp => kvp.Value > 1).ToList();
 
             if (duplicates.Any())
@@ -194,7 +204,6 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
             // Since Upsert has issues with calculated properties, let's do individual updates in a loop
             // but with minimal database calls by batching the query preparation
-            int successCount = 0;
             var updateTasks = new List<Task<bool>>();
 
             foreach (var player in playersResult)
@@ -239,7 +248,8 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
                 .Set(p => p.FantasyCalcRedraftValue, redraftValue)
                 .Update();
 
-            return result?.Models is not null && result.Models.Any();
+            return result != null && result.Models != null && result.Models.Any();
+
         }
         catch (Exception ex)
         {
