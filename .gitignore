@@ -339,3 +339,5 @@ appsettings.Local.json
 appsettings.Production.json
 *.Development.json
 logs/
+/.vs/fantasy_calc_scrape/CopilotIndices/17.14.995.13737
+/.vs/fantasy_calc_scrape/FileContentIndex
