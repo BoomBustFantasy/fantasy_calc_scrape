@@ -68,14 +68,13 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
             // Update the player's redraft value
             _logger.LogDebug("Updating player {SleeperId} redraft value to {RedraftValue}", sleeperId, redraftValue);
 
-
-            var result = await _supabaseClient
+            var updateResult = await _supabaseClient
                 .From<Player>()
                 .Where(p => p.SleeperId == sleeperIdLong)
                 .Set(p => p.FantasyCalcRedraftValue, redraftValue)
                 .Update();
 
-            if (result != null && result.Models != null && result.Models.Any())
+            if (updateResult?.Models?.Any() == true)
             {
                 _logger.LogDebug("Successfully updated redraft value for player {SleeperId}", sleeperId);
                 return true;
@@ -242,14 +241,13 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
     {
         try
         {
-            var result = await _supabaseClient
+            var updateResult = await _supabaseClient
                 .From<Player>()
                 .Where(p => p.SleeperId == sleeperId)
                 .Set(p => p.FantasyCalcRedraftValue, redraftValue)
                 .Update();
 
-            return result != null && result.Models != null && result.Models.Any();
-
+            return updateResult?.Models?.Any() == true;
         }
         catch (Exception ex)
         {
