@@ -6,6 +6,8 @@ using FantasyCalcScrape.Services;
 using FantasyCalcScrape.Services.Interfaces;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 using Quartz;
 using Serilog;
 
@@ -23,24 +25,65 @@ try
 
     Log.Information("Starting Fantasy Calc Scrape Service");
 
-    // Configure cache settings
-    builder.Services.Configure<CacheConfiguration>(builder.Configuration.GetSection("Cache"));
-
     // Configure resilience settings
     builder.Services.Configure<ResilienceConfiguration>(builder.Configuration.GetSection("Resilience"));
+    var resilienceConfig = builder.Configuration.GetSection("Resilience").Get<ResilienceConfiguration>() 
+        ?? new ResilienceConfiguration();
 
     // Register services
     builder.Services.AddScoped<IFantasyCalcApiService, FantasyCalcApiService>();
     builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
 
-    // Add HTTP client for Fantasy Calc API
+    // Add HTTP client for Fantasy Calc API with resilience policies
     builder.Services.AddHttpClient<FantasyCalcApiService>(client =>
     {
         client.BaseAddress = new Uri("https://api.fantasycalc.com/");
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.Timeout = TimeSpan.FromSeconds(resilienceConfig.TimeoutSeconds);
         client.DefaultRequestHeaders.Add("User-Agent", "FantasyCalcScraper/1.0");
         client.DefaultRequestHeaders.Add("Accept", "application/json");
+    })
+    .AddStandardResilienceHandler(options =>
+    {
+        // Configure retry with exponential backoff
+        options.Retry.MaxRetryAttempts = resilienceConfig.MaxRetryAttempts;
+        options.Retry.Delay = TimeSpan.FromSeconds(resilienceConfig.DelayBetweenRetriesSeconds);
+        options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
+        options.Retry.UseJitter = true;
+        options.Retry.OnRetry = args =>
+        {
+            Log.Warning("Retry attempt {AttemptNumber} for Fantasy Calc API after {Delay}ms delay. Exception: {Exception}", 
+                args.AttemptNumber, args.RetryDelay.TotalMilliseconds, args.Outcome.Exception?.Message);
+            return default;
+        };
+
+        // Configure timeout
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(resilienceConfig.TimeoutSeconds);
+        options.TotalRequestTimeout.OnTimeout = args =>
+        {
+            Log.Error("Request to Fantasy Calc API timed out after {Timeout}s", resilienceConfig.TimeoutSeconds);
+            return default;
+        };
+
+        // Configure circuit breaker
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+        options.CircuitBreaker.FailureRatio = 0.5;
+        options.CircuitBreaker.MinimumThroughput = 3;
+        options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+        options.CircuitBreaker.OnOpened = args =>
+        {
+            Log.Error("Circuit breaker opened for Fantasy Calc API. Will retry after {BreakDuration}s", 
+                options.CircuitBreaker.BreakDuration.TotalSeconds);
+            return default;
+        };
+        options.CircuitBreaker.OnClosed = args =>
+        {
+            Log.Information("Circuit breaker closed for Fantasy Calc API. Service is healthy again");
+            return default;
+        };
     });
+
+    Log.Information("Resilience policies configured: MaxRetries={MaxRetries}, Timeout={Timeout}s, Delay={Delay}s", 
+        resilienceConfig.MaxRetryAttempts, resilienceConfig.TimeoutSeconds, resilienceConfig.DelayBetweenRetriesSeconds);
 
     // Add ASP.NET Core services for diagnostic endpoints
     builder.Services.AddControllers();
