@@ -1,22 +1,31 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>CS8603</NoWarn>
+    <RestoreAdditionalProjectSources>../BoomBust.Logging;../BoomBust.HealthChecks</RestoreAdditionalProjectSources>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="HealthChecks\**" />
+    <Content Remove="HealthChecks\**" />
+    <EmbeddedResource Remove="HealthChecks\**" />
+    <None Remove="HealthChecks\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BoomBust.Logging" Version="1.0.0" />
     <PackageReference Include="Quartz" Version="3.15.0" />
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.15.0" />
-    <PackageReference Include="Serilog" Version="4.3.0" />
-    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 
     <!-- Supabase packages -->
     <PackageReference Include="Supabase" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BoomBust.HealthChecks\BoomBust.HealthChecks.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,15 @@
+version: '3.8'
+
+# docker-compose.override.yml
+# This file is automatically used by docker-compose for local development
+# It overrides settings from docker-compose.yml
+
+services:
+  fantasy-calc-scrape:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      # Mount source code for hot reload (if using dotnet watch)
+      # - .:/src
+      # Mount logs directory
+      - ./logs:/app/logs

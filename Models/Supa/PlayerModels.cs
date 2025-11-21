@@ -131,6 +131,13 @@ public class Player : BaseModel
     public int? KtcValue { get; set; }
 
     /// <summary>
+    /// Fantasy Calculator player ID for linking to Fantasy Calc API data
+    /// </summary>
+    [Column("fantasy_calc_player_id")]
+    [JsonPropertyName("fantasy_calc_player_id")]
+    public int? FantasyCalcPlayerId { get; set; }
+
+    /// <summary>
     /// Fantasy Calculator redraft value for the player
     /// </summary>
     [Column("fantasy_calc_redraft_value")]
@@ -272,6 +279,7 @@ public class PlayerDto
     public string? KtcPlayerId { get; set; }
     public string? KtcPlayerLink { get; set; }
     public int? KtcValue { get; set; }
+    public int? FantasyCalcPlayerId { get; set; }
 }
 
 /// <summary>
@@ -333,6 +341,11 @@ public class PlayerSearchCriteria
     /// Filter by KTC player ID
     /// </summary>
     public string? KtcPlayerId { get; set; }
+
+    /// <summary>
+    /// Filter by Fantasy Calculator player ID
+    /// </summary>
+    public int? FantasyCalcPlayerId { get; set; }
 
     /// <summary>
     /// Minimum age filter
