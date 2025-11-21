@@ -9,11 +9,19 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      # BetterStack Logging
+      - BetterStack__SourceToken=hj4sWfQGqSmj4i5zdJ675Emb
+      - BetterStack__Endpoint=https://s1599507.eu-nbg-2.betterstackdata.com
+      # Supabase Configuration
+      - Supabase__Url=https://afxewbjvvrucstbtzglh.supabase.co
+      - Supabase__Key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmeGV3Ymp2dnJ1Y3N0YnR6Z2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwMzA3MDAsImV4cCI6MjA1MzYwNjcwMH0.cEqJu4twSy42MI35NNiXdGvbF359-0IWHjOoPcduVKE
+      - Supabase__ServiceRoleKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmeGV3Ymp2dnJ1Y3N0YnR6Z2xoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODAzMDcwMCwiZXhwIjoyMDUzNjA2NzAwfQ.4pq76UvN3u6H3sGzNlfhKNRy_5pHv_STTOFqoC5g8J8
+      - Supabase__ProjectId=afxewbjvvrucstbtzglh
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

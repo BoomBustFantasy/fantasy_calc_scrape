@@ -1,3 +1,4 @@
+using FantasyCalcScrape.Models;
 using FantasyCalcScrape.Services.Interfaces;
 using Quartz;
 
@@ -54,12 +55,12 @@ public class FantasyCalcValuesJob : IJob
         }
     }
 
-    private async Task<int> UpdatePlayerRedraftValues(List<Models.FantasyCalcPlayer> fantasyCalcPlayers)
+    private async Task<int> UpdatePlayerRedraftValues(List<FantasyCalcPlayer> fantasyCalcPlayers)
     {
         try
         {
-            // Build dictionary of Sleeper ID to redraft value
-            var playerValues = new Dictionary<string, int>();
+            // Build dictionary of Sleeper ID to redraft value and fantasy calc player ID
+            var playerValues = new Dictionary<string, (int redraftValue, int fantasyCalcPlayerId)>();
 
             foreach (var fantasyPlayer in fantasyCalcPlayers)
             {
@@ -69,7 +70,7 @@ public class FantasyCalcValuesJob : IJob
                     continue;
                 }
 
-                playerValues[fantasyPlayer.Player.SleeperId] = fantasyPlayer.RedraftValue;
+                playerValues[fantasyPlayer.Player.SleeperId] = (fantasyPlayer.RedraftValue, fantasyPlayer.Player.Id);
             }
 
             if (playerValues.Count == 0)

@@ -14,9 +14,9 @@ public interface ISupabaseDatabaseService
     Task<bool> UpdatePlayerRedraftValueAsync(string sleeperId, int redraftValue);
 
     /// <summary>
-    /// Updates multiple players' redraft values in a batch operation
+    /// Updates multiple players' redraft values and fantasy calc player IDs in a batch operation
     /// </summary>
-    /// <param name="playerValues">Dictionary of Sleeper ID to redraft value</param>
+    /// <param name="playerValues">Dictionary of Sleeper ID to tuple of (redraft value, fantasy calc player ID)</param>
     /// <returns>Number of players successfully updated</returns>
-    Task<int> UpdatePlayerRedraftValuesAsync(Dictionary<string, int> playerValues);
+    Task<int> UpdatePlayerRedraftValuesAsync(Dictionary<string, (int redraftValue, int fantasyCalcPlayerId)> playerValues);
 }

@@ -1,26 +1,27 @@
+using BoomBust.Logging;
+using BoomBust.HealthChecks;
 using FantasyCalcScrape.Configuration;
-using FantasyCalcScrape.HealthChecks;
 using FantasyCalcScrape.Jobs;
 using FantasyCalcScrape.Services;
 using FantasyCalcScrape.Services.Interfaces;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Quartz;
 using Serilog;
 
-// Configure Serilog
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
-    .WriteTo.Console()
-    .WriteTo.File("logs/fantasy-calc-scrape-.txt", rollingInterval: RollingInterval.Day)
-    .CreateLogger();
-
 try
 {
-    Log.Information("Starting Fantasy Calc Scrape Service");
-
     var builder = WebApplication.CreateBuilder(args);
 
-    // Add Serilog
-    builder.Services.AddSerilog();
+    // Configure logging with BoomBust.Logging
+    builder.UseBoomBustLogging(options =>
+    {
+        options.ApplicationName = "FantasyCalcScrape";
+        options.LogFilePath = "logs/fantasy-calc-scrape-.txt";
+        options.OverrideToWarning = new[] { "Microsoft", "System" };
+    });
+
+    Log.Information("Starting Fantasy Calc Scrape Service");
 
     // Configure cache settings
     builder.Services.Configure<CacheConfiguration>(builder.Configuration.GetSection("Cache"));
@@ -28,12 +29,11 @@ try
     // Configure resilience settings
     builder.Services.Configure<ResilienceConfiguration>(builder.Configuration.GetSection("Resilience"));
 
-    // Configure logging settings
-    builder.Services.Configure<LoggingConfiguration>(builder.Configuration.GetSection("Logging"));
-
     // Register services
     builder.Services.AddScoped<IFantasyCalcApiService, FantasyCalcApiService>();
-    builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();    // Add HTTP client for Fantasy Calc API
+    builder.Services.AddScoped<ISupabaseDatabaseService, SupabaseDatabaseService>();
+
+    // Add HTTP client for Fantasy Calc API
     builder.Services.AddHttpClient<FantasyCalcApiService>(client =>
     {
         client.BaseAddress = new Uri("https://api.fantasycalc.com/");
@@ -45,12 +45,40 @@ try
     // Add ASP.NET Core services for diagnostic endpoints
     builder.Services.AddControllers();
 
-    // Add HTTP client for health checks
-    builder.Services.AddHttpClient<FantasyCalcApiHealthCheck>();
+    // Required for BoomBust.HealthChecks
+    builder.Services.AddHttpClient();
 
-    // Add health checks
+    // Get Supabase connection string
+    var supabaseUrl = builder.Configuration["Supabase:Url"];
+    var supabaseServiceKey = builder.Configuration["Supabase:ServiceRoleKey"];
+    var supabaseConnectionString = !string.IsNullOrEmpty(supabaseUrl) && !string.IsNullOrEmpty(supabaseServiceKey)
+        ? $"Host={new Uri(supabaseUrl).Host};Database=postgres;Username=postgres;Password={supabaseServiceKey}"
+        : null;
+
+    // Add comprehensive health checks with BoomBust.HealthChecks
     builder.Services.AddHealthChecks()
-        .AddCheck<FantasyCalcApiHealthCheck>("fantasy_calc_api", tags: new[] { "fantasy_calc", "api" });
+        // Liveness - is the app alive?
+        .AddCheck("self", () => HealthCheckResult.Healthy("Application is running"), tags: ["live"])
+        
+        // Readiness - Database check
+        .AddSupabaseHealthCheck(
+            connectionString: supabaseConnectionString ?? "Host=localhost;Database=postgres;Username=postgres;Password=postgres",
+            name: "supabase",
+            healthCheckName: "Supabase Database",
+            failureStatus: HealthStatus.Unhealthy,
+            tags: ["db", "supabase", "ready"],
+            timeout: TimeSpan.FromSeconds(10)
+        )
+        
+        // Readiness - External API checks
+        .AddApiHealthCheck(
+            apiUrl: "https://api.fantasycalc.com/values/current",
+            name: "fantasycalc-api",
+            healthCheckName: "FantasyCalc API",
+            failureStatus: HealthStatus.Degraded, // Non-critical
+            tags: ["external", "api", "ready"],
+            timeout: TimeSpan.FromSeconds(10)
+        );
 
     // Add Quartz
     builder.Services.AddQuartz(q =>
@@ -64,10 +92,17 @@ try
             .DisallowConcurrentExecution()
             .StoreDurably());
 
+        // Immediate trigger on startup
+        q.AddTrigger(opts => opts
+            .ForJob(valuesJobKey)
+            .WithIdentity("FantasyCalcValuesJob-startup-trigger")
+            .StartNow()
+            .WithDescription("Fantasy Calc values sync - Run on startup"));
+
         // Values sync every 4 hours
         q.AddTrigger(opts => opts
             .ForJob(valuesJobKey)
-            .WithIdentity("FantasyCalcValuesJob-trigger")
+            .WithIdentity("FantasyCalcValuesJob-scheduled-trigger")
             .WithCronSchedule("0 0 */4 * * ?") // Every 4 hours
             .WithDescription("Fantasy Calc values sync - Every 4 hours"));
     });
@@ -85,7 +120,49 @@ try
 
     app.UseRouting();
     app.MapControllers();
-    app.MapHealthChecks("/health");
+
+    // Health check endpoints - Kubernetes style
+    app.MapHealthChecks("/health/live", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("live"),
+        AllowCachingResponses = false
+    });
+
+    app.MapHealthChecks("/health/ready", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+        AllowCachingResponses = false
+    });
+
+    // Detailed health check with JSON response
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+            
+            var response = new
+            {
+                status = report.Status.ToString(),
+                timestamp = DateTime.UtcNow,
+                checks = report.Entries.Select(e => new
+                {
+                    name = e.Key,
+                    status = e.Value.Status.ToString(),
+                    description = e.Value.Description,
+                    duration = $"{e.Value.Duration.TotalMilliseconds:F2}ms",
+                    exception = e.Value.Exception?.Message,
+                    data = e.Value.Data
+                }),
+                totalDuration = $"{report.TotalDuration.TotalMilliseconds:F2}ms"
+            };
+            
+            await context.Response.WriteAsJsonAsync(response);
+        }
+    });
+
+    Log.Information("Application started successfully with BetterStack logging and comprehensive health checks configured");
+    Log.Information("Health check endpoints: /health, /health/live, /health/ready");
 
     await app.RunAsync();
 }

@@ -19,7 +19,19 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         var url = configuration["Supabase:Url"] ?? throw new InvalidOperationException("Supabase URL not configured");
         var serviceRoleKey = configuration["Supabase:ServiceRoleKey"] ?? throw new InvalidOperationException("Supabase Service Role Key not configured");
 
-        _supabaseClient = new Client(url, serviceRoleKey);
+        // Initialize Supabase client with proper options
+        var options = new SupabaseOptions
+        {
+            AutoConnectRealtime = false,
+            AutoRefreshToken = false
+        };
+
+        _supabaseClient = new Client(url, serviceRoleKey, options);
+        
+        // Initialize the client (required before use)
+        _supabaseClient.InitializeAsync().Wait();
+        
+        _logger.LogInformation("Supabase client initialized successfully");
     }
 
     /// <summary>
@@ -94,11 +106,11 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
     }
 
     /// <summary>
-    /// Updates multiple players' redraft values in a single batch operation
+    /// Updates multiple players' redraft values and fantasy calc player IDs in a single batch operation
     /// </summary>
-    /// <param name="playerValues">Dictionary of Sleeper ID to redraft value</param>
+    /// <param name="playerValues">Dictionary of Sleeper ID to tuple of (redraft value, fantasy calc player ID)</param>
     /// <returns>Number of players successfully updated</returns>
-    public async Task<int> UpdatePlayerRedraftValuesAsync(Dictionary<string, int> playerValues)
+    public async Task<int> UpdatePlayerRedraftValuesAsync(Dictionary<string, (int redraftValue, int fantasyCalcPlayerId)> playerValues)
     {
         if (!playerValues.Any())
         {
@@ -207,13 +219,13 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
             foreach (var player in playersResult)
             {
-                if (player.SleeperId.HasValue && playerValues.TryGetValue(player.SleeperId.Value.ToString(), out int redraftValue))
+                if (player.SleeperId.HasValue && playerValues.TryGetValue(player.SleeperId.Value.ToString(), out var playerData))
                 {
-                    _logger.LogDebug("Preparing update for {FirstName} {LastName} (Sleeper ID: {SleeperId}) = {Value}",
-                        player.FirstName, player.LastName, player.SleeperId, redraftValue);
+                    _logger.LogDebug("Preparing update for {FirstName} {LastName} (Sleeper ID: {SleeperId}) - Redraft Value: {RedraftValue}, Fantasy Calc ID: {FantasyCalcId}",
+                        player.FirstName, player.LastName, player.SleeperId, playerData.redraftValue, playerData.fantasyCalcPlayerId);
 
                     // Add the update task to batch
-                    var updateTask = UpdateSinglePlayerRedraftValue(player.SleeperId.Value, redraftValue);
+                    var updateTask = UpdateSinglePlayerRedraftValue(player.SleeperId.Value, playerData.redraftValue, playerData.fantasyCalcPlayerId);
                     updateTasks.Add(updateTask);
                 }
             }
@@ -237,7 +249,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         }
     }
 
-    private async Task<bool> UpdateSinglePlayerRedraftValue(long sleeperId, int redraftValue)
+    private async Task<bool> UpdateSinglePlayerRedraftValue(long sleeperId, int redraftValue, int fantasyCalcPlayerId)
     {
         try
         {
@@ -245,13 +257,14 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
                 .From<Player>()
                 .Where(p => p.SleeperId == sleeperId)
                 .Set(p => p.FantasyCalcRedraftValue, redraftValue)
+                .Set(p => p.FantasyCalcPlayerId, fantasyCalcPlayerId)
                 .Update();
 
             return updateResult?.Models?.Any() == true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating redraft value for player with Sleeper ID {SleeperId}", sleeperId);
+            _logger.LogError(ex, "Error updating redraft value and fantasy calc player ID for player with Sleeper ID {SleeperId}", sleeperId);
             return false;
         }
     }
