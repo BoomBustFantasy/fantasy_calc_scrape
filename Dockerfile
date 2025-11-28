@@ -7,18 +7,16 @@ EXPOSE 8081
 # Use the .NET 9.0 SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
-ARG NUGET_TOKEN
 WORKDIR /src
-
-# Set the token as environment variable for NuGet
-ENV NUGET_TOKEN=${NUGET_TOKEN}
 
 # Copy NuGet configuration
 COPY ["nuget.config", "."]
 
 # Copy project file and restore dependencies
 COPY ["FantasyCalcScrape.csproj", "."]
-RUN dotnet restore "./FantasyCalcScrape.csproj"
+RUN --mount=type=secret,id=nuget_token \
+    NUGET_TOKEN=$(cat /run/secrets/nuget_token) \
+    dotnet restore "./FantasyCalcScrape.csproj"
 
 # Copy all source files
 COPY . .

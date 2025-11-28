@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          build-args: |
-            NUGET_TOKEN=${{ secrets.NUGET_TOKEN }}
+          secrets: |
+            nuget_token=${{ secrets.NUGET_TOKEN }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
