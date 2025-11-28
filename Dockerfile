@@ -10,6 +10,9 @@ ARG BUILD_CONFIGURATION=Release
 ARG NUGET_TOKEN
 WORKDIR /src
 
+# Set the token as environment variable for NuGet
+ENV NUGET_TOKEN=${NUGET_TOKEN}
+
 # Copy NuGet configuration
 COPY ["nuget.config", "."]
 
