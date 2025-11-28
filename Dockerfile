@@ -7,7 +7,11 @@ EXPOSE 8081
 # Use the .NET 9.0 SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
+ARG NUGET_TOKEN
 WORKDIR /src
+
+# Copy NuGet configuration
+COPY ["nuget.config", "."]
 
 # Copy project file and restore dependencies
 COPY ["FantasyCalcScrape.csproj", "."]

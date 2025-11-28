@@ -5,7 +5,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>CS8603</NoWarn>
-    <RestoreAdditionalProjectSources>../BoomBust.Logging;../BoomBust.HealthChecks</RestoreAdditionalProjectSources>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,17 +15,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BoomBust.Logging" Version="1.0.0" />
+    <!-- GitHub Packages -->
+    <PackageReference Include="JackBruzan.BoomBust.Logging" Version="1.0.0" />
+    <PackageReference Include="JackBruzan.BoomBust.HealthChecks" Version="1.0.0" />
+
+    <!-- Public NuGet packages -->
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
     <PackageReference Include="Quartz" Version="3.15.0" />
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.15.0" />
 
     <!-- Supabase packages -->
     <PackageReference Include="Supabase" Version="1.1.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\BoomBust.HealthChecks\BoomBust.HealthChecks.csproj" />
   </ItemGroup>
 
 </Project>
