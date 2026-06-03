@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
@@ -144,6 +145,13 @@ public class Player : BaseModel
     [JsonPropertyName("fantasy_calc_redraft_value")]
     public int? FantasyCalcRedraftValue { get; set; }
 
+    /// <summary>
+    /// Fantasy Calculator dynasty value for the player
+    /// </summary>
+    [Column("fantasy_calc_dynasty_value")]
+    [JsonPropertyName("fantasy_calc_dynasty_value")]
+    public int? FantasyCalcDynastyValue { get; set; }
+
     // Audit fields
     /// <summary>
     /// When the record was created
@@ -163,26 +171,26 @@ public class Player : BaseModel
     /// <summary>
     /// Associated team information
     /// </summary>
-    [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public Team? Team { get; set; }
 
     /// <summary>
     /// Associated position information
     /// </summary>
-    [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public Position? Position { get; set; }
 
     // Computed properties
     /// <summary>
     /// Full name combining first and last name
     /// </summary>
-    [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public string FullName => $"{FirstName} {LastName}".Trim();
 
     /// <summary>
     /// Display name with position (e.g., "Christian McCaffrey (RB)")
     /// </summary>
-    [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public string DisplayName => Position != null ? $"{FullName} ({Position.Name})" : FullName;
 }
 
@@ -427,4 +435,155 @@ public class PlayerSearchResponse
     /// Whether there are previous pages available
     /// </summary>
     public bool HasPreviousPage => Page > 1;
+}
+
+/// <summary>
+/// Represents a historical trade from Fantasy Calculator in the Supabase HistoricalTrades table
+/// </summary>
+[Table("HistoricalTrades")]
+public class HistoricalTrade : BaseModel
+{
+    /// <summary>
+    /// Primary key - Auto-generated identity
+    /// </summary>
+    [PrimaryKey("id")]
+    [Column("id")]
+    [JsonPropertyName("id")]
+    [Newtonsoft.Json.JsonProperty(DefaultValueHandling = Newtonsoft.Json.DefaultValueHandling.Ignore)]
+    public int? Id { get; set; }
+
+    /// <summary>
+    /// Fantasy Calculator trade ID (unique identifier from API)
+    /// </summary>
+    [Column("fantasy_calc_trade_id")]
+    [JsonPropertyName("fantasy_calc_trade_id")]
+    public string FantasyCalcTradeId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Date the trade was executed
+    /// </summary>
+    [Column("trade_date")]
+    [JsonPropertyName("trade_date")]
+    public DateTime TradeDate { get; set; }
+
+    /// <summary>
+    /// Number of teams in the league
+    /// </summary>
+    [Column("num_teams")]
+    [JsonPropertyName("num_teams")]
+    public int NumTeams { get; set; }
+
+    /// <summary>
+    /// Number of QBs (can be decimal for superflex)
+    /// </summary>
+    [Column("num_qbs")]
+    [JsonPropertyName("num_qbs")]
+    public int NumQbs { get; set; }
+
+    /// <summary>
+    /// PPR scoring setting
+    /// </summary>
+    [Column("ppr")]
+    [JsonPropertyName("ppr")]
+    public decimal Ppr { get; set; }
+
+    /// <summary>
+    /// Whether this is a dynasty league trade
+    /// </summary>
+    [Column("is_dynasty")]
+    [JsonPropertyName("is_dynasty")]
+    public bool IsDynasty { get; set; }
+
+    /// <summary>
+    /// Number of starter positions
+    /// </summary>
+    [Column("num_starters")]
+    [JsonPropertyName("num_starters")]
+    public int? NumStarters { get; set; }
+
+    /// <summary>
+    /// Total roster size
+    /// </summary>
+    [Column("roster_size")]
+    [JsonPropertyName("roster_size")]
+    public int? RosterSize { get; set; }
+
+    /// <summary>
+    /// TE premium scoring
+    /// </summary>
+    [Column("te_premium")]
+    [JsonPropertyName("te_premium")]
+    public decimal? TePremium { get; set; }
+
+    /// <summary>
+    /// Number of superflex positions
+    /// </summary>
+    [Column("num_superflex")]
+    [JsonPropertyName("num_superflex")]
+    public int? NumSuperflex { get; set; }
+
+    /// <summary>
+    /// Site-specific league identifier from the fantasy platform
+    /// </summary>
+    [Column("site_league_id")]
+    [JsonPropertyName("site_league_id")]
+    public string? SiteLeagueId { get; set; }
+
+    /// <summary>
+    /// When the record was created
+    /// </summary>
+    [Column("created_at")]
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the record was last updated
+    /// </summary>
+    [Column("updated_at")]
+    [JsonPropertyName("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Represents a player or asset in a historical trade
+/// </summary>
+[Table("HistoricalTradeAssets")]
+public class HistoricalTradeAsset : BaseModel
+{
+    /// <summary>
+    /// Primary key - Auto-generated identity
+    /// </summary>
+    [PrimaryKey("id")]
+    [Column("id")]
+    [JsonPropertyName("id")]
+    [Newtonsoft.Json.JsonProperty(DefaultValueHandling = Newtonsoft.Json.DefaultValueHandling.Ignore)]
+    public int? Id { get; set; }
+
+    /// <summary>
+    /// Foreign key to HistoricalTrades table
+    /// </summary>
+    [Column("historical_trade_id")]
+    [JsonPropertyName("historical_trade_id")]
+    public int HistoricalTradeId { get; set; }
+
+    /// <summary>
+    /// Foreign key to Players table (nullable for draft picks)
+    /// </summary>
+    [Column("player_id")]
+    [JsonPropertyName("player_id")]
+    public int? PlayerId { get; set; }
+
+    /// <summary>
+    /// Which side of the trade (1 or 2)
+    /// </summary>
+    [Column("side")]
+    [JsonPropertyName("side")]
+    public int Side { get; set; }
+
+    /// <summary>
+    /// When the record was created
+    /// </summary>
+    [Column("created_at")]
+    [JsonPropertyName("created_at")]
+    public DateTime? CreatedAt { get; set; }
 }

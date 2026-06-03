@@ -27,7 +27,7 @@ try
 
     // Configure resilience settings
     builder.Services.Configure<ResilienceConfiguration>(builder.Configuration.GetSection("Resilience"));
-    var resilienceConfig = builder.Configuration.GetSection("Resilience").Get<ResilienceConfiguration>() 
+    var resilienceConfig = builder.Configuration.GetSection("Resilience").Get<ResilienceConfiguration>()
         ?? new ResilienceConfiguration();
 
     // Register services
@@ -51,7 +51,7 @@ try
         options.Retry.UseJitter = true;
         options.Retry.OnRetry = args =>
         {
-            Log.Warning("Retry attempt {AttemptNumber} for Fantasy Calc API after {Delay}ms delay. Exception: {Exception}", 
+            Log.Warning("Retry attempt {AttemptNumber} for Fantasy Calc API after {Delay}ms delay. Exception: {Exception}",
                 args.AttemptNumber, args.RetryDelay.TotalMilliseconds, args.Outcome.Exception?.Message);
             return default;
         };
@@ -71,7 +71,7 @@ try
         options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
         options.CircuitBreaker.OnOpened = args =>
         {
-            Log.Error("Circuit breaker opened for Fantasy Calc API. Will retry after {BreakDuration}s", 
+            Log.Error("Circuit breaker opened for Fantasy Calc API. Will retry after {BreakDuration}s",
                 options.CircuitBreaker.BreakDuration.TotalSeconds);
             return default;
         };
@@ -82,7 +82,7 @@ try
         };
     });
 
-    Log.Information("Resilience policies configured: MaxRetries={MaxRetries}, Timeout={Timeout}s, Delay={Delay}s", 
+    Log.Information("Resilience policies configured: MaxRetries={MaxRetries}, Timeout={Timeout}s, Delay={Delay}s",
         resilienceConfig.MaxRetryAttempts, resilienceConfig.TimeoutSeconds, resilienceConfig.DelayBetweenRetriesSeconds);
 
     // Add ASP.NET Core services for diagnostic endpoints
@@ -102,7 +102,7 @@ try
     builder.Services.AddHealthChecks()
         // Liveness - is the app alive?
         .AddCheck("self", () => HealthCheckResult.Healthy("Application is running"), tags: ["live"])
-        
+
         // Readiness - Database check
         .AddSupabaseHealthCheck(
             connectionString: supabaseConnectionString ?? "Host=localhost;Database=postgres;Username=postgres;Password=postgres",
@@ -112,7 +112,7 @@ try
             tags: ["db", "supabase", "ready"],
             timeout: TimeSpan.FromSeconds(10)
         )
-        
+
         // Readiness - External API checks
         .AddApiHealthCheck(
             apiUrl: "https://api.fantasycalc.com/values/current",
@@ -148,6 +148,29 @@ try
             .WithIdentity("FantasyCalcValuesJob-scheduled-trigger")
             .WithCronSchedule("0 0 */4 * * ?") // Every 4 hours
             .WithDescription("Fantasy Calc values sync - Every 4 hours"));
+
+        // Create a "key" for the Fantasy Calc Historical Trades job
+        var tradesJobKey = new JobKey("FantasyCalcHistoricalTradesJob");
+
+        // Register the Fantasy Calc Historical Trades job with the DI container
+        q.AddJob<FantasyCalcHistoricalTradesJob>(opts => opts
+            .WithIdentity(tradesJobKey)
+            .DisallowConcurrentExecution()
+            .StoreDurably());
+
+        // Immediate trigger on startup
+        q.AddTrigger(opts => opts
+            .ForJob(tradesJobKey)
+            .WithIdentity("FantasyCalcHistoricalTradesJob-startup-trigger")
+            .StartNow()
+            .WithDescription("Fantasy Calc historical trades sync - Run on startup"));
+
+        // Historical trades sync every 4 hours (offset by 2 hours from redraft)
+        q.AddTrigger(opts => opts
+            .ForJob(tradesJobKey)
+            .WithIdentity("FantasyCalcHistoricalTradesJob-scheduled-trigger")
+            .WithCronSchedule("0 0 2,6,10,14,18,22 * * ?") // Every 4 hours starting at 2am
+            .WithDescription("Fantasy Calc historical trades sync - Every 4 hours offset"));
     });
 
     // Add Quartz hosted service
@@ -183,7 +206,7 @@ try
         ResponseWriter = async (context, report) =>
         {
             context.Response.ContentType = "application/json";
-            
+
             var response = new
             {
                 status = report.Status.ToString(),
@@ -199,7 +222,7 @@ try
                 }),
                 totalDuration = $"{report.TotalDuration.TotalMilliseconds:F2}ms"
             };
-            
+
             await context.Response.WriteAsJsonAsync(response);
         }
     });

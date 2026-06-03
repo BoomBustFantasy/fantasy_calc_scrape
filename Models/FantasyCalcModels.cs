@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace FantasyCalcScrape.Models;
 
@@ -8,6 +9,68 @@ public class FantasyCalcValueResponse
     public string? Error { get; set; }
     public DateTime LastUpdated { get; set; }
     public List<FantasyCalcPlayer> Values { get; set; } = new();
+}
+
+public class FantasyCalcTradeResponse
+{
+    public bool Success { get; set; } = true;
+    public string? Error { get; set; }
+    public DateTime LastUpdated { get; set; }
+    public List<FantasyCalcTrade> Trades { get; set; } = new();
+}
+
+public class FantasyCalcTrade
+{
+    public string Id { get; set; } = string.Empty;
+    public string LeagueId { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+
+    [JsonPropertyName("siteLeagueId")]
+    public string? SiteLeagueId { get; set; }
+
+    public List<TradePlayer> Side1 { get; set; } = new();
+    public List<TradePlayer> Side2 { get; set; } = new();
+
+    // League settings
+    public int NumTeams { get; set; }
+    public decimal NumQbs { get; set; }
+    public decimal Ppr { get; set; }
+    public bool IsDynasty { get; set; }
+    public decimal TePremium { get; set; }
+    public int NumQbsNonSuperflex { get; set; }
+    public int NumSuperflex { get; set; }
+    public int NumRbs { get; set; }
+    public int NumWrs { get; set; }
+    public int NumTes { get; set; }
+    public int NumFlex { get; set; }
+    public int NumStarters { get; set; }
+    public int RosterSize { get; set; }
+    public decimal PassTds { get; set; }
+
+    // Optional trade metadata
+    public int? MaybeTradedValueDiff { get; set; }
+    public decimal? MaybeScore { get; set; }
+    public string? MaybeGrade { get; set; }
+    public string? UsernameSide1 { get; set; }
+    public string? UsernameSide2 { get; set; }
+}
+
+public class TradePlayer
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string MflId { get; set; } = string.Empty;
+    public string SleeperId { get; set; } = string.Empty;
+    public string Position { get; set; } = string.Empty;
+    public string? MaybeBirthday { get; set; }
+    public string? MaybeHeight { get; set; }
+    public int? MaybeWeight { get; set; }
+    public string? MaybeCollege { get; set; }
+    public string? MaybeTeam { get; set; }
+    public decimal? MaybeAge { get; set; }
+    public int? MaybeYoe { get; set; }
+    public string? EspnId { get; set; }
+    public string? FleaflickerId { get; set; }
 }
 
 public class FantasyCalcPlayer

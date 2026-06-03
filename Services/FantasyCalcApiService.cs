@@ -151,4 +151,93 @@ public class FantasyCalcApiService : IFantasyCalcApiService
             };
         }
     }
+
+    public async Task<FantasyCalcTradeResponse> GetTradesAsync(
+        bool isDynasty = true,
+        int numTeams = 12,
+        decimal ppr = 1.0m,
+        int numQbs = 2,
+        int minPlayers = 2,
+        int maxPlayers = 8)
+    {
+        try
+        {
+            _logger.LogInformation("Fetching Fantasy Calc trades: isDynasty={IsDynasty}, numTeams={NumTeams}, ppr={Ppr}, numQbs={NumQbs}",
+                isDynasty, numTeams, ppr, numQbs);
+
+            var queryParams = HttpUtility.ParseQueryString(string.Empty);
+            queryParams["isDynasty"] = isDynasty.ToString().ToLower();
+            queryParams["numTeams"] = numTeams.ToString();
+            queryParams["ppr"] = ppr.ToString("0.0");
+            queryParams["numQbs"] = numQbs.ToString();
+            queryParams["minPlayers"] = minPlayers.ToString();
+            queryParams["maxPlayers"] = maxPlayers.ToString();
+
+            var queryString = queryParams.ToString() ?? string.Empty;
+            var endpoint = $"trades?{queryString}";
+
+            var response = await _httpClient.GetAsync(endpoint);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Fantasy Calc Trades API returned error status: {StatusCode}", response.StatusCode);
+                return new FantasyCalcTradeResponse
+                {
+                    Success = false,
+                    Error = $"API returned status: {response.StatusCode}"
+                };
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = ParseTradesApiResponse(content);
+
+            if (result.Success)
+            {
+                _logger.LogInformation("Successfully retrieved {Count} trades",
+                    result.Trades.Count);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Fantasy Calc trades");
+            return new FantasyCalcTradeResponse
+            {
+                Success = false,
+                Error = ex.Message
+            };
+        }
+    }
+
+    private FantasyCalcTradeResponse ParseTradesApiResponse(string jsonContent)
+    {
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            // The API returns a direct array of FantasyCalcTrade objects
+            var trades = JsonSerializer.Deserialize<List<FantasyCalcTrade>>(jsonContent, options);
+
+            return new FantasyCalcTradeResponse
+            {
+                Success = true,
+                LastUpdated = DateTime.UtcNow,
+                Trades = trades ?? new List<FantasyCalcTrade>()
+            };
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Failed to parse Fantasy Calc Trades API response");
+            return new FantasyCalcTradeResponse
+            {
+                Success = false,
+                Error = "Failed to parse trades API response"
+            };
+        }
+    }
 }
