@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
 namespace FantasyCalcScrape.Models;
 
@@ -25,13 +24,11 @@ public class FantasyCalcTrade
     public string LeagueId { get; set; } = string.Empty;
     public DateTime Date { get; set; }
 
-    [JsonPropertyName("siteLeagueId")]
     public string? SiteLeagueId { get; set; }
 
     public List<TradePlayer> Side1 { get; set; } = new();
     public List<TradePlayer> Side2 { get; set; } = new();
 
-    // League settings
     public int NumTeams { get; set; }
     public decimal NumQbs { get; set; }
     public decimal Ppr { get; set; }
@@ -47,7 +44,6 @@ public class FantasyCalcTrade
     public int RosterSize { get; set; }
     public decimal PassTds { get; set; }
 
-    // Optional trade metadata
     public int? MaybeTradedValueDiff { get; set; }
     public decimal? MaybeScore { get; set; }
     public string? MaybeGrade { get; set; }
@@ -92,7 +88,7 @@ public class FantasyCalcPlayer
     public bool Starter { get; set; }
     public int? MaybeTier { get; set; }
     public decimal? MaybeAdp { get; set; }
-    public decimal MaybeTradeFrequency { get; set; }
+    public decimal? MaybeTradeFrequency { get; set; }
 }
 
 public class Player
@@ -111,6 +107,8 @@ public class Player
     public int? MaybeYoe { get; set; }
     public string? EspnId { get; set; }
     public string? FleaflickerId { get; set; }
+
+    public int? FantasyCalcRedraftValue { get; set; }
 }
 
 public class FantasyCalcApiSettings

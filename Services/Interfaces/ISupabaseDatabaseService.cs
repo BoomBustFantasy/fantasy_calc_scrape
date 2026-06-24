@@ -21,13 +21,6 @@ public interface ISupabaseDatabaseService
     Task<int> UpdatePlayerRedraftValuesAsync(Dictionary<string, (int redraftValue, int fantasyCalcPlayerId)> playerValues);
 
     /// <summary>
-    /// Updates multiple players' dynasty values and fantasy calc player IDs in a batch operation
-    /// </summary>
-    /// <param name="playerValues">Dictionary of Sleeper ID to tuple of (dynasty value, fantasy calc player ID)</param>
-    /// <returns>Number of players successfully updated</returns>
-    Task<int> UpdatePlayerDynastyValuesAsync(Dictionary<string, (int dynastyValue, int fantasyCalcPlayerId)> playerValues);
-
-    /// <summary>
     /// Upserts normalized dynasty values into FantasyCalcPlayerValues.
     /// </summary>
     /// <param name="fantasyCalcPlayers">Returned FantasyCalc players for a specific dynasty format tuple.</param>
@@ -36,11 +29,12 @@ public interface ISupabaseDatabaseService
     Task<int> UpsertFantasyCalcDynastyValuesAsync(List<Models.FantasyCalcPlayer> fantasyCalcPlayers, Models.FantasyCalcApiSettings settings);
 
     /// <summary>
-    /// Updates dynasty values for draft picks matched by full name (first_name + ' ' + last_name)
+    /// Reads a normalized FantasyCalc dynasty row for a player and format tuple.
     /// </summary>
-    /// <param name="pickValues">Dictionary of full pick name (e.g. "2026 Pick 1.03") to dynasty value</param>
-    /// <returns>Number of picks successfully updated</returns>
-    Task<int> UpdatePickDynastyValuesAsync(Dictionary<string, int> pickValues);
+    /// <param name="playerId">Internal player ID from the Players table.</param>
+    /// <param name="settings">Dynasty format settings used to identify the stored row.</param>
+    /// <returns>The matching normalized row, or null if none exists.</returns>
+    Task<Models.Supa.FantasyCalcPlayerValue?> GetFantasyCalcDynastyValueAsync(long playerId, Models.FantasyCalcApiSettings settings);
 
     /// <summary>
     /// Inserts historical trades from Fantasy Calculator into the database
