@@ -116,7 +116,7 @@ public class FantasyCalcApiService : IFantasyCalcApiService
             queryParams["superflex"] = settings.Superflex;
 
         if (!string.IsNullOrEmpty(settings.Te_premium))
-            queryParams["te_premium"] = settings.Te_premium;
+            queryParams["tep"] = settings.Te_premium;
 
         return queryParams.ToString() ?? string.Empty;
     }

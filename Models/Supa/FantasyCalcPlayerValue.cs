@@ -7,9 +7,7 @@ namespace FantasyCalcScrape.Models.Supa;
 [Table("FantasyCalcPlayerValues")]
 public class FantasyCalcPlayerValue : BaseModel
 {
-    [PrimaryKey("id")]
-    [Column("id")]
-    [JsonPropertyName("id")]
+    [PrimaryKey("id", shouldInsert: false)]
     public long Id { get; set; }
 
     [Column("player_id")]

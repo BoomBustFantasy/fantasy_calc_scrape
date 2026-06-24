@@ -26,7 +26,7 @@ Suggested columns:
 - `num_teams` - `8`, `10`, `12`, or `14`
 - `num_qbs` - `1` or `2`
 - `ppr` - `0`, `0.5`, or `1.0`
-- `te_premium` - `NOTEP`, `TEP`, or `TEPPLUS`
+- `te_premium` - `NOTEP`, `TEP`, or `TEPPLUS` (API accepts `none`, `te+`, `te++` and values are normalized to uppercase for storage)
 - `fantasy_calc_player_id` - FantasyCalc player identifier
 - `value` - FantasyCalc value for the combination
 - `overall_rank` - overall rank for the combination

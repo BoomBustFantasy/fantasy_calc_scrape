@@ -13,7 +13,7 @@ public class FantasyCalcValuesJob : IJob
     private static readonly int[] SupportedDynastyTeamSizes = [8, 10, 12, 14];
     private static readonly int[] SupportedDynastyQbCounts = [1, 2];
     private static readonly decimal[] SupportedDynastyPprs = [0.0m, 0.5m, 1.0m];
-    private static readonly string[] SupportedDynastyTePremiums = ["NOTEP", "TEP", "TEPPLUS"];
+    private static readonly string[] SupportedDynastyTePremiums = ["none", "te+", "te++"];
 
     public FantasyCalcValuesJob(
         ILogger<FantasyCalcValuesJob> logger,

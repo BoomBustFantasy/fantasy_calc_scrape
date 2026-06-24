@@ -1,3 +1,7 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using FantasyCalcScrape.Models.Supa;
 using FantasyCalcScrape.Services.Interfaces;
 using Supabase;
@@ -11,6 +15,14 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 {
     private readonly ILogger<SupabaseDatabaseService> _logger;
     private readonly Client _supabaseClient;
+    private readonly HttpClient _httpClient;
+    private readonly string _supabaseKey;
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     public SupabaseDatabaseService(ILogger<SupabaseDatabaseService> logger, IConfiguration configuration)
     {
@@ -18,6 +30,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
         var url = configuration["Supabase:Url"] ?? throw new InvalidOperationException("Supabase URL not configured");
         var serviceRoleKey = configuration["Supabase:ServiceRoleKey"] ?? throw new InvalidOperationException("Supabase Service Role Key not configured");
+        _supabaseKey = serviceRoleKey;
 
         // Initialize Supabase client with proper options
         var options = new SupabaseOptions
@@ -30,6 +43,11 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
         // Initialize the client (required before use)
         _supabaseClient.InitializeAsync().Wait();
+
+        // HttpClient for direct REST calls (bypasses ORM serialization issues)
+        _httpClient = new HttpClient { BaseAddress = new Uri(url.TrimEnd('/') + "/rest/v1/") };
+        _httpClient.DefaultRequestHeaders.Add("apikey", serviceRoleKey);
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", serviceRoleKey);
 
         _logger.LogInformation("Supabase client initialized successfully");
     }
@@ -326,14 +344,32 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
             foreach (var batch in normalizedRows.Chunk(200))
             {
-                var upsertResult = await _supabaseClient
-                    .From<FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue>()
-                    .Upsert(batch.ToList(), new Supabase.Postgrest.QueryOptions { OnConflict = conflictColumns });
-
-                if (upsertResult?.Models?.Any() == true)
+                var dtos = batch.Select(r => new
                 {
-                    upsertedCount += upsertResult.Models.Count;
-                }
+                    player_id = r.PlayerId,
+                    mode = r.Mode,
+                    num_teams = r.NumTeams,
+                    num_qbs = r.NumQbs,
+                    ppr = r.Ppr,
+                    te_premium = r.TePremium,
+                    fantasy_calc_player_id = r.FantasyCalcPlayerId,
+                    value = r.Value,
+                    overall_rank = r.OverallRank,
+                    position_rank = r.PositionRank,
+                    updated_at = r.UpdatedAt
+                });
+
+                var json = JsonSerializer.Serialize(dtos);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var request = new HttpRequestMessage(HttpMethod.Post,
+                    $"FantasyCalcPlayerValues?on_conflict={Uri.EscapeDataString(conflictColumns)}");
+                request.Content = content;
+                request.Headers.Add("Prefer", "resolution=merge-duplicates,return=minimal");
+
+                var response = await _httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                upsertedCount += batch.Length;
             }
 
             _logger.LogInformation(
@@ -385,7 +421,16 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
     private static string NormalizeTePremium(string? tePremium)
     {
-        return string.IsNullOrWhiteSpace(tePremium) ? "NOTEP" : tePremium.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(tePremium))
+            return "NOTEP";
+
+        return tePremium.Trim().ToLowerInvariant() switch
+        {
+            "none" => "NOTEP",
+            "te+" => "TEP",
+            "te++" => "TEPPLUS",
+            _ => tePremium.Trim().ToUpperInvariant() // Fallback for any legacy uppercase values
+        };
     }
 
     /// <summary>
