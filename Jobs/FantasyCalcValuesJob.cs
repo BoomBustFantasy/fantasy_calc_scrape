@@ -46,30 +46,12 @@ public class FantasyCalcValuesJob : IJob
                 redraftResponse.Values.Count);
 
             var redraftUpdatedCount = await UpdatePlayerRedraftValues(redraftResponse.Values);
-
-            // Fetch the legacy dynasty default first so the existing Players cache stays compatible.
-            _logger.LogInformation("Fetching legacy dynasty values from Fantasy Calculator API (2QB, 12-team, PPR 1.0)...");
-            var legacyDynastyResponse = await _valuesService.GetDynastyValuesAsync(numQbs: 2, numTeams: 12, ppr: 1.0m);
-
-            if (!legacyDynastyResponse.Success)
-            {
-                _logger.LogError("Failed to fetch legacy dynasty values: {Error}", legacyDynastyResponse.Error);
-                return;
-            }
-
-            _logger.LogInformation("Successfully fetched {Count} legacy dynasty values from Fantasy Calculator",
-                legacyDynastyResponse.Values.Count);
-
-            var dynastyUpdatedCount = await UpdatePlayerDynastyValues(legacyDynastyResponse.Values);
-            var pickUpdatedCount = await UpdatePickDynastyValues(legacyDynastyResponse.Values);
             var normalizedDynastyUpdatedCount = await UpsertNormalizedDynastyValues();
 
             _logger.LogInformation("Fantasy Calc Values Job completed successfully: {JobKey}. " +
                 "Redraft: fetched {RedraftFetched}, updated {RedraftUpdated} players. " +
-                "Dynasty cache: fetched {DynastyFetched}, updated {DynastyUpdated} players, {PickUpdated} picks. " +
                 "Normalized dynasty rows upserted: {NormalizedUpdated}.",
                 jobKey, redraftResponse.Values.Count, redraftUpdatedCount,
-                legacyDynastyResponse.Values.Count, dynastyUpdatedCount, pickUpdatedCount,
                 normalizedDynastyUpdatedCount);
         }
         catch (Exception ex)
@@ -106,72 +88,6 @@ public class FantasyCalcValuesJob : IJob
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating player redraft values");
-            throw;
-        }
-    }
-
-    private async Task<int> UpdatePlayerDynastyValues(List<FantasyCalcPlayer> fantasyCalcPlayers)
-    {
-        try
-        {
-            var playerValues = new Dictionary<string, (int dynastyValue, int fantasyCalcPlayerId)>();
-
-            foreach (var fantasyPlayer in fantasyCalcPlayers)
-            {
-                if (string.IsNullOrEmpty(fantasyPlayer.Player.SleeperId))
-                    continue;
-
-                playerValues[fantasyPlayer.Player.SleeperId] = (fantasyPlayer.Value, fantasyPlayer.Player.Id);
-            }
-
-            if (playerValues.Count == 0)
-            {
-                _logger.LogWarning("No players with Sleeper IDs found to update dynasty values");
-                return 0;
-            }
-
-            var updatedCount = await _databaseService.UpdatePlayerDynastyValuesAsync(playerValues);
-            _logger.LogInformation("Updated {Count} players with Fantasy Calculator dynasty values", updatedCount);
-            return updatedCount;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating player dynasty values");
-            throw;
-        }
-    }
-
-    private async Task<int> UpdatePickDynastyValues(List<FantasyCalcPlayer> fantasyCalcPlayers)
-    {
-        try
-        {
-            var pickValues = new Dictionary<string, int>();
-
-            foreach (var fantasyPlayer in fantasyCalcPlayers)
-            {
-                if (fantasyPlayer.Player.Position != "PICK")
-                    continue;
-
-                if (string.IsNullOrEmpty(fantasyPlayer.Player.Name))
-                    continue;
-
-                pickValues[fantasyPlayer.Player.Name] = fantasyPlayer.Value;
-            }
-
-            if (pickValues.Count == 0)
-            {
-                _logger.LogWarning("No picks found in dynasty response");
-                return 0;
-            }
-
-            _logger.LogInformation("Found {Count} picks in dynasty response", pickValues.Count);
-            var updatedCount = await _databaseService.UpdatePickDynastyValuesAsync(pickValues);
-            _logger.LogInformation("Updated {Count} picks with Fantasy Calculator dynasty values", updatedCount);
-            return updatedCount;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating pick dynasty values");
             throw;
         }
     }

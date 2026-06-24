@@ -145,13 +145,6 @@ public class Player : BaseModel
     [JsonPropertyName("fantasy_calc_redraft_value")]
     public int? FantasyCalcRedraftValue { get; set; }
 
-    /// <summary>
-    /// Fantasy Calculator dynasty value for the player
-    /// </summary>
-    [Column("fantasy_calc_dynasty_value")]
-    [JsonPropertyName("fantasy_calc_dynasty_value")]
-    public int? FantasyCalcDynastyValue { get; set; }
-
     // Audit fields
     /// <summary>
     /// When the record was created

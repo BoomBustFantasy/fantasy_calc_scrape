@@ -149,28 +149,6 @@ try
             .WithCronSchedule("0 0 */4 * * ?") // Every 4 hours
             .WithDescription("Fantasy Calc values sync - Every 4 hours"));
 
-        // Create a "key" for the Fantasy Calc Historical Trades job
-        var tradesJobKey = new JobKey("FantasyCalcHistoricalTradesJob");
-
-        // Register the Fantasy Calc Historical Trades job with the DI container
-        q.AddJob<FantasyCalcHistoricalTradesJob>(opts => opts
-            .WithIdentity(tradesJobKey)
-            .DisallowConcurrentExecution()
-            .StoreDurably());
-
-        // Immediate trigger on startup
-        q.AddTrigger(opts => opts
-            .ForJob(tradesJobKey)
-            .WithIdentity("FantasyCalcHistoricalTradesJob-startup-trigger")
-            .StartNow()
-            .WithDescription("Fantasy Calc historical trades sync - Run on startup"));
-
-        // Historical trades sync every 4 hours (offset by 2 hours from redraft)
-        q.AddTrigger(opts => opts
-            .ForJob(tradesJobKey)
-            .WithIdentity("FantasyCalcHistoricalTradesJob-scheduled-trigger")
-            .WithCronSchedule("0 0 2,6,10,14,18,22 * * ?") // Every 4 hours starting at 2am
-            .WithDescription("Fantasy Calc historical trades sync - Every 4 hours offset"));
     });
 
     // Add Quartz hosted service
