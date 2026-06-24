@@ -36,6 +36,14 @@ public interface ISupabaseDatabaseService
     Task<int> UpsertFantasyCalcDynastyValuesAsync(List<Models.FantasyCalcPlayer> fantasyCalcPlayers, Models.FantasyCalcApiSettings settings);
 
     /// <summary>
+    /// Reads a normalized FantasyCalc dynasty row for a player and format tuple.
+    /// </summary>
+    /// <param name="playerId">Internal player ID from the Players table.</param>
+    /// <param name="settings">Dynasty format settings used to identify the stored row.</param>
+    /// <returns>The matching normalized row, or null if none exists.</returns>
+    Task<Models.Supa.FantasyCalcPlayerValue?> GetFantasyCalcDynastyValueAsync(long playerId, Models.FantasyCalcApiSettings settings);
+
+    /// <summary>
     /// Updates dynasty values for draft picks matched by full name (first_name + ' ' + last_name)
     /// </summary>
     /// <param name="pickValues">Dictionary of full pick name (e.g. "2026 Pick 1.03") to dynasty value</param>

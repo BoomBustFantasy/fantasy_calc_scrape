@@ -492,6 +492,40 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         }
     }
 
+    public async Task<FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue?> GetFantasyCalcDynastyValueAsync(long playerId, FantasyCalcScrape.Models.FantasyCalcApiSettings settings)
+    {
+        if (!settings.IsDynasty)
+        {
+            _logger.LogWarning("Requested Fantasy Calc value lookup for non-dynasty settings; only dynasty is supported");
+            return null;
+        }
+
+        try
+        {
+            var tePremium = NormalizeTePremium(settings.Te_premium);
+
+            var result = await _supabaseClient
+                .From<FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue>()
+                .Where(value =>
+                    value.PlayerId == playerId &&
+                    value.Mode == "DYN" &&
+                    value.NumTeams == settings.NumTeams &&
+                    value.NumQbs == settings.NumQbs &&
+                    value.Ppr == settings.Ppr &&
+                    value.TePremium == tePremium)
+                .Get();
+
+            return result?.Models?.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error reading Fantasy Calc dynasty value for player {PlayerId} and format {NumTeams}/{NumQbs}/{Ppr}/{TePremium}",
+                playerId, settings.NumTeams, settings.NumQbs, settings.Ppr, settings.Te_premium);
+            return null;
+        }
+    }
+
     private static string NormalizeTePremium(string? tePremium)
     {
         return string.IsNullOrWhiteSpace(tePremium) ? "NOTEP" : tePremium.Trim().ToUpperInvariant();
