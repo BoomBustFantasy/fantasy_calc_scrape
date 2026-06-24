@@ -412,6 +412,91 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         }
     }
 
+    public async Task<int> UpsertFantasyCalcDynastyValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings)
+    {
+        if (!fantasyCalcPlayers.Any())
+        {
+            _logger.LogInformation("No Fantasy Calc dynasty values to upsert");
+            return 0;
+        }
+
+        try
+        {
+            var playerLookup = await GetPlayerLookupDictionary();
+            var normalizedRows = new List<FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue>();
+            var tePremium = NormalizeTePremium(settings.Te_premium);
+            var updatedAt = DateTime.UtcNow;
+
+            foreach (var fantasyPlayer in fantasyCalcPlayers)
+            {
+                if (string.IsNullOrWhiteSpace(fantasyPlayer.Player.SleeperId))
+                {
+                    continue;
+                }
+
+                if (!playerLookup.TryGetValue(fantasyPlayer.Player.SleeperId, out var playerId))
+                {
+                    _logger.LogDebug(
+                        "Skipping Fantasy Calc player {FantasyCalcPlayerId} because Sleeper ID {SleeperId} was not found in Players",
+                        fantasyPlayer.Player.Id, fantasyPlayer.Player.SleeperId);
+                    continue;
+                }
+
+                normalizedRows.Add(new FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue
+                {
+                    PlayerId = playerId,
+                    Mode = "DYN",
+                    NumTeams = settings.NumTeams,
+                    NumQbs = settings.NumQbs,
+                    Ppr = settings.Ppr,
+                    TePremium = tePremium,
+                    FantasyCalcPlayerId = fantasyPlayer.Player.Id,
+                    Value = fantasyPlayer.Value,
+                    OverallRank = fantasyPlayer.OverallRank,
+                    PositionRank = fantasyPlayer.PositionRank,
+                    UpdatedAt = updatedAt
+                });
+            }
+
+            if (!normalizedRows.Any())
+            {
+                _logger.LogWarning("No normalized Fantasy Calc dynasty rows were matched to internal players");
+                return 0;
+            }
+
+            const string conflictColumns = "player_id,mode,num_teams,num_qbs,ppr,te_premium";
+            var upsertedCount = 0;
+
+            foreach (var batch in normalizedRows.Chunk(200))
+            {
+                var upsertResult = await _supabaseClient
+                    .From<FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue>()
+                    .Upsert(batch.ToList(), new Supabase.Postgrest.QueryOptions { OnConflict = conflictColumns });
+
+                if (upsertResult?.Models?.Any() == true)
+                {
+                    upsertedCount += upsertResult.Models.Count;
+                }
+            }
+
+            _logger.LogInformation(
+                "Upserted {Count} normalized Fantasy Calc dynasty rows for {NumTeams} teams, {NumQbs} QB, PPR {Ppr}, TE premium {TePremium}",
+                upsertedCount, settings.NumTeams, settings.NumQbs, settings.Ppr, tePremium);
+
+            return upsertedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upserting normalized Fantasy Calc dynasty values");
+            return 0;
+        }
+    }
+
+    private static string NormalizeTePremium(string? tePremium)
+    {
+        return string.IsNullOrWhiteSpace(tePremium) ? "NOTEP" : tePremium.Trim().ToUpperInvariant();
+    }
+
     private async Task<bool> UpdateSinglePlayerDynastyValue(long sleeperId, int dynastyValue, int fantasyCalcPlayerId)
     {
         try
@@ -428,6 +513,146 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating dynasty value and fantasy calc player ID for player with Sleeper ID {SleeperId}", sleeperId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Updates dynasty values for draft picks matched by full name (first_name + ' ' + last_name).
+    /// Picks in the database have no sleeper_id, so they cannot be matched by Sleeper ID.
+    /// </summary>
+    public async Task<int> UpdatePickDynastyValuesAsync(Dictionary<string, int> pickValues)
+    {
+        if (!pickValues.Any())
+        {
+            _logger.LogInformation("No pick dynasty values to update");
+            return 0;
+        }
+
+        try
+        {
+            _logger.LogInformation("Fetching draft pick players (null sleeper_id) to match against {Count} FC pick values", pickValues.Count);
+
+            // Picks in the DB have no sleeper_id — fetch them all
+            var allPicks = new List<Player>();
+            int pageSize = 1000;
+            int offset = 0;
+            bool hasMore = true;
+
+            while (hasMore)
+            {
+                var pageResult = await _supabaseClient
+                    .From<Player>()
+                    .Where(p => p.SleeperId == null)
+                    .Range(offset, offset + pageSize - 1)
+                    .Get();
+
+                if (pageResult?.Models == null || !pageResult.Models.Any())
+                {
+                    hasMore = false;
+                    break;
+                }
+
+                allPicks.AddRange(pageResult.Models);
+
+                if (pageResult.Models.Count < pageSize)
+                    hasMore = false;
+                else
+                    offset += pageSize;
+            }
+
+            _logger.LogInformation("Fetched {Count} players with null sleeper_id from database", allPicks.Count);
+
+            // Build secondary map for generic round picks: "2026 1st" -> value, keyed as "2026-1"
+            var ordinalToRound = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["1st"] = 1,
+                ["2nd"] = 2,
+                ["3rd"] = 3,
+                ["4th"] = 4,
+                ["5th"] = 5,
+                ["6th"] = 6,
+                ["7th"] = 7,
+                ["8th"] = 8,
+                ["9th"] = 9,
+                ["10th"] = 10
+            };
+
+            var roundPickMap = new Dictionary<string, int>();
+            foreach (var kvp in pickValues)
+            {
+                var parts = kvp.Key.Split(' ');
+                if (parts.Length == 2 && parts[0].Length == 4 && char.IsDigit(parts[0][0])
+                    && ordinalToRound.TryGetValue(parts[1], out int roundNum))
+                {
+                    roundPickMap[$"{parts[0]}-{roundNum}"] = kvp.Value;
+                }
+            }
+
+            _logger.LogInformation("Built round pick map with {Count} entries (e.g. '2026-1', '2027-2')", roundPickMap.Count);
+
+            var updateTasks = new List<Task<bool>>();
+            var tiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Early", "Mid", "Late" };
+
+            foreach (var pick in allPicks)
+            {
+                var fullName = $"{pick.FirstName} {pick.LastName}".Trim();
+
+                if (pickValues.TryGetValue(fullName, out int dynastyValue))
+                {
+                    // Exact match (e.g. "2026 Pick 1.01")
+                    _logger.LogDebug("Preparing update for pick '{PickName}' (ID: {PickId}) - Dynasty Value: {DynastyValue}",
+                        fullName, pick.Id, dynastyValue);
+                    updateTasks.Add(UpdateSinglePickDynastyValue(pick.Id, dynastyValue));
+                }
+                else
+                {
+                    // Fallback: match tier picks like "2026 Mid 1st" -> "2026-1"
+                    var parts = fullName.Split(' ');
+                    if (parts.Length == 3 && parts[0].Length == 4 && char.IsDigit(parts[0][0])
+                        && tiers.Contains(parts[1]) && ordinalToRound.TryGetValue(parts[2], out int round)
+                        && roundPickMap.TryGetValue($"{parts[0]}-{round}", out int tierValue))
+                    {
+                        _logger.LogDebug("Preparing tier pick update for '{PickName}' (ID: {PickId}) - Dynasty Value: {DynastyValue}",
+                            fullName, pick.Id, tierValue);
+                        updateTasks.Add(UpdateSinglePickDynastyValue(pick.Id, tierValue));
+                    }
+                }
+            }
+
+            if (!updateTasks.Any())
+            {
+                _logger.LogWarning("No picks in database matched any Fantasy Calc pick names");
+                return 0;
+            }
+
+            var results = await Task.WhenAll(updateTasks);
+            var updatedCount = results.Count(r => r);
+            _logger.LogInformation("Pick dynasty update completed: {UpdatedCount} picks updated", updatedCount);
+            return updatedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error performing batch update for pick dynasty values");
+            return 0;
+        }
+    }
+
+    private async Task<bool> UpdateSinglePickDynastyValue(long pickId, int dynastyValue)
+    {
+        try
+        {
+            var updateResult = await _supabaseClient
+                .From<Player>()
+                .Where(p => p.Id == pickId)
+                .Set(p => p.FantasyCalcDynastyValue, dynastyValue)
+                .Update();
+
+            return updateResult?.Models?.Any() == true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating dynasty value for pick with ID {PickId}", pickId);
             return false;
         }
     }

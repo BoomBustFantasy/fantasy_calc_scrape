@@ -28,6 +28,21 @@ public interface ISupabaseDatabaseService
     Task<int> UpdatePlayerDynastyValuesAsync(Dictionary<string, (int dynastyValue, int fantasyCalcPlayerId)> playerValues);
 
     /// <summary>
+    /// Upserts normalized dynasty values into FantasyCalcPlayerValues.
+    /// </summary>
+    /// <param name="fantasyCalcPlayers">Returned FantasyCalc players for a specific dynasty format tuple.</param>
+    /// <param name="settings">Dynasty format settings for the returned values.</param>
+    /// <returns>Number of rows successfully upserted.</returns>
+    Task<int> UpsertFantasyCalcDynastyValuesAsync(List<Models.FantasyCalcPlayer> fantasyCalcPlayers, Models.FantasyCalcApiSettings settings);
+
+    /// <summary>
+    /// Updates dynasty values for draft picks matched by full name (first_name + ' ' + last_name)
+    /// </summary>
+    /// <param name="pickValues">Dictionary of full pick name (e.g. "2026 Pick 1.03") to dynasty value</param>
+    /// <returns>Number of picks successfully updated</returns>
+    Task<int> UpdatePickDynastyValuesAsync(Dictionary<string, int> pickValues);
+
+    /// <summary>
     /// Inserts historical trades from Fantasy Calculator into the database
     /// </summary>
     /// <param name="trades">List of trades to insert</param>
