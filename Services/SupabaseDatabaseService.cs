@@ -291,7 +291,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         => UpsertNormalizedFantasyCalcValuesAsync(fantasyCalcPlayers, settings, "DYN", "dynasty");
 
     public Task<int> UpsertFantasyCalcRedraftValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings)
-        => UpsertNormalizedFantasyCalcValuesAsync(fantasyCalcPlayers, settings, "RDFT", "redraft");
+        => UpsertNormalizedFantasyCalcValuesAsync(fantasyCalcPlayers, settings, "RDR", "redraft");
 
     private async Task<int> UpsertNormalizedFantasyCalcValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings, string mode, string modeLabel)
     {
