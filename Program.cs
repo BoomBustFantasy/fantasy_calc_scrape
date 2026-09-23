@@ -142,12 +142,12 @@ try
             .StartNow()
             .WithDescription("Fantasy Calc values sync - Run on startup"));
 
-        // Values sync every 4 hours
+        // Values sync every 2 hours
         q.AddTrigger(opts => opts
             .ForJob(valuesJobKey)
             .WithIdentity("FantasyCalcValuesJob-scheduled-trigger")
-            .WithCronSchedule("0 0 */4 * * ?") // Every 4 hours
-            .WithDescription("Fantasy Calc values sync - Every 4 hours"));
+            .WithCronSchedule("0 0 */2 * * ?") // Every 2 hours
+            .WithDescription("Fantasy Calc values sync - Every 2 hours"));
 
     });
 
