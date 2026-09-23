@@ -10,10 +10,10 @@ public class FantasyCalcValuesJob : IJob
     private readonly ILogger<FantasyCalcValuesJob> _logger;
     private readonly IFantasyCalcApiService _valuesService;
     private readonly ISupabaseDatabaseService _databaseService;
-    private static readonly int[] SupportedDynastyTeamSizes = [8, 10, 12, 14];
-    private static readonly int[] SupportedDynastyQbCounts = [1, 2];
-    private static readonly decimal[] SupportedDynastyPprs = [0.0m, 0.5m, 1.0m];
-    private static readonly string[] SupportedDynastyTePremiums = ["none", "te+", "te++"];
+    private static readonly int[] SupportedTeamSizes = [8, 10, 12, 14];
+    private static readonly int[] SupportedQbCounts = [1, 2];
+    private static readonly decimal[] SupportedPprs = [0.0m, 0.5m, 1.0m];
+    private static readonly string[] SupportedTePremiums = ["none", "te+", "te++"];
 
     public FantasyCalcValuesJob(
         ILogger<FantasyCalcValuesJob> logger,
@@ -46,13 +46,15 @@ public class FantasyCalcValuesJob : IJob
                 redraftResponse.Values.Count);
 
             var redraftUpdatedCount = await UpdatePlayerRedraftValues(redraftResponse.Values);
+            var normalizedRedraftUpdatedCount = await UpsertNormalizedRedraftValues();
             var normalizedDynastyUpdatedCount = await UpsertNormalizedDynastyValues();
 
             _logger.LogInformation("Fantasy Calc Values Job completed successfully: {JobKey}. " +
                 "Redraft: fetched {RedraftFetched}, updated {RedraftUpdated} players. " +
-                "Normalized dynasty rows upserted: {NormalizedUpdated}.",
+                "Normalized redraft rows upserted: {NormalizedRedraftUpdated}. " +
+                "Normalized dynasty rows upserted: {NormalizedDynastyUpdated}.",
                 jobKey, redraftResponse.Values.Count, redraftUpdatedCount,
-                normalizedDynastyUpdatedCount);
+                normalizedRedraftUpdatedCount, normalizedDynastyUpdatedCount);
         }
         catch (Exception ex)
         {
@@ -96,7 +98,7 @@ public class FantasyCalcValuesJob : IJob
     {
         try
         {
-            var normalizedSettings = BuildNormalizedDynastySettings().ToList();
+            var normalizedSettings = BuildNormalizedSettings(isDynasty: true).ToList();
             var totalUpserted = 0;
 
             foreach (var settings in normalizedSettings)
@@ -132,19 +134,59 @@ public class FantasyCalcValuesJob : IJob
         }
     }
 
-    private static IEnumerable<FantasyCalcApiSettings> BuildNormalizedDynastySettings()
+    private async Task<int> UpsertNormalizedRedraftValues()
     {
-        foreach (var numTeams in SupportedDynastyTeamSizes)
+        try
         {
-            foreach (var numQbs in SupportedDynastyQbCounts)
+            var normalizedSettings = BuildNormalizedSettings(isDynasty: false).ToList();
+            var totalUpserted = 0;
+
+            foreach (var settings in normalizedSettings)
             {
-                foreach (var ppr in SupportedDynastyPprs)
+                _logger.LogInformation(
+                    "Fetching normalized redraft values for {NumTeams} teams, {NumQbs} QB, PPR {Ppr}, TE premium {TePremium}",
+                    settings.NumTeams, settings.NumQbs, settings.Ppr, settings.Te_premium);
+
+                var response = await _valuesService.GetCurrentValuesAsync(settings);
+
+                if (!response.Success)
                 {
-                    foreach (var tePremium in SupportedDynastyTePremiums)
+                    _logger.LogError(
+                        "Failed to fetch normalized redraft values for {NumTeams} teams, {NumQbs} QB, PPR {Ppr}, TE premium {TePremium}: {Error}",
+                        settings.NumTeams, settings.NumQbs, settings.Ppr, settings.Te_premium, response.Error);
+                    return 0;
+                }
+
+                var upsertedCount = await _databaseService.UpsertFantasyCalcRedraftValuesAsync(response.Values, settings);
+                totalUpserted += upsertedCount;
+
+                _logger.LogInformation(
+                    "Upserted {Count} normalized redraft rows for {NumTeams} teams, {NumQbs} QB, PPR {Ppr}, TE premium {TePremium}",
+                    upsertedCount, settings.NumTeams, settings.NumQbs, settings.Ppr, settings.Te_premium);
+            }
+
+            return totalUpserted;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upserting normalized redraft values");
+            throw;
+        }
+    }
+
+    private static IEnumerable<FantasyCalcApiSettings> BuildNormalizedSettings(bool isDynasty)
+    {
+        foreach (var numTeams in SupportedTeamSizes)
+        {
+            foreach (var numQbs in SupportedQbCounts)
+            {
+                foreach (var ppr in SupportedPprs)
+                {
+                    foreach (var tePremium in SupportedTePremiums)
                     {
                         yield return new FantasyCalcApiSettings
                         {
-                            IsDynasty = true,
+                            IsDynasty = isDynasty,
                             NumTeams = numTeams,
                             NumQbs = numQbs,
                             Ppr = ppr,
