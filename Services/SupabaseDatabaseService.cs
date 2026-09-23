@@ -287,11 +287,17 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
         }
     }
 
-    public async Task<int> UpsertFantasyCalcDynastyValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings)
+    public Task<int> UpsertFantasyCalcDynastyValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings)
+        => UpsertNormalizedFantasyCalcValuesAsync(fantasyCalcPlayers, settings, "DYN", "dynasty");
+
+    public Task<int> UpsertFantasyCalcRedraftValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings)
+        => UpsertNormalizedFantasyCalcValuesAsync(fantasyCalcPlayers, settings, "RDFT", "redraft");
+
+    private async Task<int> UpsertNormalizedFantasyCalcValuesAsync(List<FantasyCalcScrape.Models.FantasyCalcPlayer> fantasyCalcPlayers, FantasyCalcScrape.Models.FantasyCalcApiSettings settings, string mode, string modeLabel)
     {
         if (!fantasyCalcPlayers.Any())
         {
-            _logger.LogInformation("No Fantasy Calc dynasty values to upsert");
+            _logger.LogInformation("No Fantasy Calc {ModeLabel} values to upsert", modeLabel);
             return 0;
         }
 
@@ -320,7 +326,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
                 normalizedRows.Add(new FantasyCalcScrape.Models.Supa.FantasyCalcPlayerValue
                 {
                     PlayerId = playerId,
-                    Mode = "DYN",
+                    Mode = mode,
                     NumTeams = settings.NumTeams,
                     NumQbs = settings.NumQbs,
                     Ppr = settings.Ppr,
@@ -335,7 +341,7 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
 
             if (!normalizedRows.Any())
             {
-                _logger.LogWarning("No normalized Fantasy Calc dynasty rows were matched to internal players");
+                _logger.LogWarning("No normalized Fantasy Calc {ModeLabel} rows were matched to internal players", modeLabel);
                 return 0;
             }
 
@@ -373,14 +379,14 @@ public class SupabaseDatabaseService : ISupabaseDatabaseService
             }
 
             _logger.LogInformation(
-                "Upserted {Count} normalized Fantasy Calc dynasty rows for {NumTeams} teams, {NumQbs} QB, PPR {Ppr}, TE premium {TePremium}",
-                upsertedCount, settings.NumTeams, settings.NumQbs, settings.Ppr, tePremium);
+                "Upserted {Count} normalized Fantasy Calc {ModeLabel} rows for {NumTeams} teams, {NumQbs} QB, PPR {Ppr}, TE premium {TePremium}",
+                upsertedCount, modeLabel, settings.NumTeams, settings.NumQbs, settings.Ppr, tePremium);
 
             return upsertedCount;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error upserting normalized Fantasy Calc dynasty values");
+            _logger.LogError(ex, "Error upserting normalized Fantasy Calc {ModeLabel} values", modeLabel);
             return 0;
         }
     }

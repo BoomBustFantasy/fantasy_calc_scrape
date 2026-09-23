@@ -29,6 +29,14 @@ public interface ISupabaseDatabaseService
     Task<int> UpsertFantasyCalcDynastyValuesAsync(List<Models.FantasyCalcPlayer> fantasyCalcPlayers, Models.FantasyCalcApiSettings settings);
 
     /// <summary>
+    /// Upserts normalized redraft values into FantasyCalcPlayerValues.
+    /// </summary>
+    /// <param name="fantasyCalcPlayers">Returned FantasyCalc players for a specific redraft format tuple.</param>
+    /// <param name="settings">Redraft format settings for the returned values.</param>
+    /// <returns>Number of rows successfully upserted.</returns>
+    Task<int> UpsertFantasyCalcRedraftValuesAsync(List<Models.FantasyCalcPlayer> fantasyCalcPlayers, Models.FantasyCalcApiSettings settings);
+
+    /// <summary>
     /// Reads a normalized FantasyCalc dynasty row for a player and format tuple.
     /// </summary>
     /// <param name="playerId">Internal player ID from the Players table.</param>
