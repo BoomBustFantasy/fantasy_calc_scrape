@@ -10,13 +10,13 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       # BetterStack Logging
-      - BetterStack__SourceToken=hj4sWfQGqSmj4i5zdJ675Emb
-      - BetterStack__Endpoint=https://s1599507.eu-nbg-2.betterstackdata.com
+      - BetterStack__SourceToken=${BETTERSTACK_SOURCE_TOKEN}
+      - BetterStack__Endpoint=${BETTERSTACK_ENDPOINT}
       # Supabase Configuration
-      - Supabase__Url=https://afxewbjvvrucstbtzglh.supabase.co
-      - Supabase__Key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmeGV3Ymp2dnJ1Y3N0YnR6Z2xoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwMzA3MDAsImV4cCI6MjA1MzYwNjcwMH0.cEqJu4twSy42MI35NNiXdGvbF359-0IWHjOoPcduVKE
-      - Supabase__ServiceRoleKey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmeGV3Ymp2dnJ1Y3N0YnR6Z2xoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczODAzMDcwMCwiZXhwIjoyMDUzNjA2NzAwfQ.4pq76UvN3u6H3sGzNlfhKNRy_5pHv_STTOFqoC5g8J8
-      - Supabase__ProjectId=afxewbjvvrucstbtzglh
+      - Supabase__Url=${SUPABASE_URL}
+      - Supabase__Key=${SUPABASE_KEY}
+      - Supabase__ServiceRoleKey=${SUPABASE_SERVICE_ROLE_KEY}
+      - Supabase__ProjectId=${SUPABASE_PROJECT_ID}
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
