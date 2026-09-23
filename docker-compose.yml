@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   fantasy-calc-scrape:
-    build: .
+    image: jackbruzan/fantasy_calc_scrape:latest
+    pull_policy: always
     container_name: fantasy-calc-scrape
     ports:
       - "5146:8080"
